@@ -1,8 +1,8 @@
 package dm_hangman.state;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.time.Duration;
+import java.time.LocalTime;
 import java.util.*;
 
 import static java.util.Map.entry;
@@ -73,5 +73,58 @@ public final class InputHelper {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(OUTPUT_TXT, true))) {
             writer.append(String.format("%s, %s, %d, %s%n", reference, time, points, name));
         }
+        try (BufferedReader reader = new BufferedReader(new FileReader(OUTPUT_TXT))){
+            String line = null;
+            Map<ScoreAndTime, String> topScores = new TreeMap<>();
+            while((line = reader.readLine()) != null){
+                // Lines have the schema "REFERENCE, TIME, SCORE, NAME"
+                // So, a typical line might look like:
+                //              1 Nephi 3:7, 00:34.622, 50625, BR HYER
+                if(!line.startsWith(reference)){
+                    continue;
+                }
+
+                String[] splitLine = line.split(", ");
+                int score = Integer.parseInt(splitLine[2]);
+
+                topScores.put(new ScoreAndTime(score, splitLine[1]), splitLine[3]);
+            }
+            System.out.println("************** LEADERBOARD **************");
+            int i = 0;
+            for(Map.Entry<ScoreAndTime, String> kvp : topScores.entrySet()){
+                i++;
+                if (i > 3){
+                    return;
+                }
+
+                System.out.printf("%d. %d\t%s\t%s%n", i, kvp.getKey().score, kvp.getKey().time, kvp.getValue());
+            }
+        }
     }
+
+    private record ScoreAndTime(int score, String time) implements Comparable<ScoreAndTime> {
+        @Override
+            public int compareTo(ScoreAndTime obj) {
+                int output = obj.score - this.score; // negative if this score is higher, since we want higher scores to appear first
+                if (output != 0) {
+                    return output;
+                }
+
+                return this.time.compareTo(obj.time); // note: faster times alphabetically come first
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (obj == null) {
+                    return false;
+                }
+
+                if (obj.getClass() != this.getClass()) {
+                    return false;
+                }
+
+                final ScoreAndTime other = (ScoreAndTime) obj;
+                return this.score == other.score && this.time.equals(other.time);
+            }
+        }
 }
