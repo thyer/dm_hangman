@@ -1,11 +1,13 @@
 package dm_hangman.state;
 
 import java.text.Normalizer;
+import java.util.Random;
 import java.util.regex.Pattern;
 
 public class HangmanState {
     private static final String BLANK_LETTER = "_";
     private static final Pattern alphabetPattern = Pattern.compile("[A-Z]", Pattern.CASE_INSENSITIVE);
+    private static final Random rand = new Random();
 
     private final String unencodedString;
     private final String userVisibleString;
@@ -39,9 +41,10 @@ public class HangmanState {
         return userVisibleString;
     }
 
-    public HangmanState guessLetter(String guessedCharacters){
+    public HangmanState guessLetter(String guessedCharacters, boolean isHeadToHead, int penalty){
         int len = userVisibleString.length();
         int pointsPerCharacter = guessedCharacters.length();
+
         HangmanState output = this;
         for(int iGuessedChar = 0; iGuessedChar < guessedCharacters.length(); ++iGuessedChar) {
             char guessedChar = guessedCharacters.charAt(iGuessedChar);
@@ -54,17 +57,27 @@ public class HangmanState {
 
                 String secretChar = output.unencodedString.substring(iUserVisibleStringChar, iUserVisibleStringChar + 1);
                 String unaccentedChar = Normalizer.normalize(secretChar, Normalizer.Form.NFD); // separates é into e+diacritic
-                if (guessedChar == unaccentedChar.charAt(0)) {
+                if (guessedChar == unaccentedChar.charAt(0)) { // CORRECT GUESS
                     StringBuilder sb = new StringBuilder(output.userVisibleString);
                     sb.setCharAt(iUserVisibleStringChar, secretChar.charAt(0));
                     earnedPoint = true;
-                    output = new HangmanState(output.unencodedString, sb.toString(), output.triesRemaining, output.points + pointsPerCharacter);
+                    if(isHeadToHead){ // a little extra randomness
+                        output = new HangmanState(output.unencodedString, sb.toString(), output.triesRemaining, output.points + pointsPerCharacter + rand.nextInt(0, pointsPerCharacter));
+                    }
+                    else{
+                        output = new HangmanState(output.unencodedString, sb.toString(), output.triesRemaining, output.points + pointsPerCharacter);
+                    }
                     break;
                 }
             }
-            if(!earnedPoint){
-                output = new HangmanState(output.unencodedString, output.userVisibleString, output.triesRemaining - 1, output.points - pointsPerCharacter);
+            if(!earnedPoint){ // WRONG GUESS
+                int multiplier = isHeadToHead ? rand.nextInt(1, 4) : 1;
+                output = new HangmanState(output.unencodedString, output.userVisibleString, output.triesRemaining - 1, output.points - (multiplier * pointsPerCharacter));
             }
+        }
+
+        if(penalty > 0){
+            output = new HangmanState(output.unencodedString, output.userVisibleString, output.triesRemaining - penalty, output.points);
         }
 
         return output;
@@ -86,11 +99,22 @@ public class HangmanState {
         return points;
     }
 
-    public void print() {
-        System.out.printf("%nPoints=%d%nTries Remaining=%d%nBlank Letters Remaining=%d%nDM:%n%s%n%n",
-                this.getPoints(),
-                this.getTriesRemaining(),
-                this.getBlankLettersRemaining(),
-                this.getUserVisibleString());
+    public void print(){
+        this.print(true);
+    }
+    public void print(boolean displayPoints) { // we don't want to display points in head-to-head matches until after both Games are complete
+        if(!displayPoints){
+            System.out.printf("%nTries Remaining=%d%nBlank Letters Remaining=%d%nDM:%n%s%n%n",
+                    this.getTriesRemaining(),
+                    this.getBlankLettersRemaining(),
+                    this.getUserVisibleString());
+        }
+        else{
+            System.out.printf("%nPoints=%d%nTries Remaining=%d%nBlank Letters Remaining=%d%nDM:%n%s%n%n",
+                    this.getPoints(),
+                    this.getTriesRemaining(),
+                    this.getBlankLettersRemaining(),
+                    this.getUserVisibleString());
+        }
     }
 }
